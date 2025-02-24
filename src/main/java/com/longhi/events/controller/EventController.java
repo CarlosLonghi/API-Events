@@ -28,10 +28,10 @@ public class EventController {
     public ResponseEntity<Event> getEventByPrettyName(@PathVariable String prettyName) {
         Event event = eventService.getByPrettyName(prettyName);
         
-        if (event == null) {
-            return ResponseEntity.notFound().build();
+        if (event != null) {
+            return ResponseEntity.ok().body(event);
         }
 
-        return ResponseEntity.ok().body(event);
+        return ResponseEntity.notFound().build();
     }
 }
