@@ -9,10 +9,7 @@ import com.longhi.events.model.User;
 import com.longhi.events.service.SubscriptionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 public class SubscriptionController {
@@ -20,13 +17,13 @@ public class SubscriptionController {
     @Autowired
     private SubscriptionService subscriptionService;
 
-    @PostMapping({"/api/v1/subscription/{prettyName}", "/api/v1/subscription/{prettyName}/{userIndicatorId}"})
-    public ResponseEntity<?> createSubscription(@PathVariable String prettyName,
+    @PostMapping({"/api/v1/subscription/{eventPrettyName}", "/api/v1/subscription/{eventPrettyName}/{userIndicatorId}"})
+    public ResponseEntity<?> createSubscription(@PathVariable String eventPrettyName,
                                                 @RequestBody User subscriber,
                                                 @PathVariable(required = false) Integer userIndicatorId
     ) {
         try {
-            SubscriptionResponse response = subscriptionService.createNewSubscription(prettyName, subscriber, userIndicatorId);
+            SubscriptionResponse response = subscriptionService.createNewSubscription(eventPrettyName, subscriber, userIndicatorId);
             if (response != null) {
                 return ResponseEntity.ok(response);
             }
@@ -37,4 +34,25 @@ public class SubscriptionController {
         }
         return ResponseEntity.badRequest().build();
     }
+
+    @GetMapping("/api/v1/subscription/{eventPrettyName}/ranking")
+    public ResponseEntity<?> generateRankingByEvent(@PathVariable String eventPrettyName) {
+        try {
+            return ResponseEntity.ok(subscriptionService.getCompleteRanking(eventPrettyName).subList(0, 3));
+        } catch (EventNotFoundException exception) {
+            return ResponseEntity.status(404).body(new ErrorMessage(exception.getMessage()));
+        }
+    }
+
+    @GetMapping("/api/v1/subscription/{eventPrettyName}/ranking/{userIndicatorId}")
+    public ResponseEntity<?> generateRankingByEventAndUser(@PathVariable String eventPrettyName,
+                                                           @PathVariable Integer userIndicatorId
+    ) {
+        try {
+            return ResponseEntity.ok(subscriptionService.getRankingByUser(eventPrettyName, userIndicatorId));
+        } catch (Exception exception) {
+            return ResponseEntity.status(404).body(new ErrorMessage(exception.getMessage()));
+        }
+    }
+
 }

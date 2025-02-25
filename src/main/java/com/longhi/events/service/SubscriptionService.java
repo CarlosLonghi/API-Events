@@ -1,5 +1,7 @@
 package com.longhi.events.service;
 
+import com.longhi.events.dto.SubscriptionRankingByIndicator;
+import com.longhi.events.dto.SubscriptionRanking;
 import com.longhi.events.dto.SubscriptionResponse;
 import com.longhi.events.exception.EventNotFoundException;
 import com.longhi.events.exception.SubscriptionConflictException;
@@ -12,6 +14,9 @@ import com.longhi.events.repository.SubscriptionRepository;
 import com.longhi.events.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.IntStream;
 
 @Service
 public class SubscriptionService {
@@ -36,17 +41,18 @@ public class SubscriptionService {
             userRecovered = userRepository.save(user);
         }
 
-        Subscription subscription = new Subscription();
-        subscription.setEvent(event);
-        subscription.setSubscriber(userRecovered);
-
+        User userIndicator = null;
         if (userIndicatorId != null) {
-            User userIndicator = userRepository.findById(userIndicatorId).orElse(null);
+            userIndicator = userRepository.findById(userIndicatorId).orElse(null);
             if (userIndicator == null) {
                 throw new UserIndicatorNotFoundException("O usuário indicador não existe");
             }
-            subscription.setIndication(userIndicator);
         }
+
+        Subscription subscription = new Subscription();
+        subscription.setEvent(event);
+        subscription.setSubscriber(userRecovered);
+        subscription.setIndication(userIndicator);
 
         Subscription tempSubscription = subscriptionRepository.findByEventAndSubscriber(event, userRecovered);
         if (tempSubscription != null) { // Caso o usuario já estiver inscrito no evento
@@ -55,5 +61,28 @@ public class SubscriptionService {
 
         Subscription response = subscriptionRepository.save(subscription);
         return new SubscriptionResponse(response.getSubscriptionNumber(), "http://codecraft.com/subscription/" + response.getEvent().getPrettyName() + "/" + response.getSubscriber().getId());
+    }
+
+    public List<SubscriptionRanking> getCompleteRanking(String eventPrettyName) {
+        Event event = eventRepository.findByPrettyName(eventPrettyName);
+        if (event == null) {
+            throw new EventNotFoundException("O ranking do evento '" + eventPrettyName + "' não existe");
+        }
+        return subscriptionRepository.generateRanking(event.getEventId());
+    }
+
+    public SubscriptionRankingByIndicator getRankingByUser(String eventPrettyName, Integer userId) {
+        List<SubscriptionRanking> completeRanking = getCompleteRanking(eventPrettyName);
+
+        SubscriptionRanking item = completeRanking.stream().filter(i -> i.userId().equals(userId)).findFirst().orElse(null);
+        if (item == null) {
+            throw new UserIndicatorNotFoundException("Ainda não há indicações para esse usuário");
+        }
+
+        int indicatorRankingPosition = IntStream.range(0, completeRanking.size())
+                .filter(i -> completeRanking.get(i).userId().equals(userId))
+                        .findFirst().orElseThrow();
+
+        return new SubscriptionRankingByIndicator(item, indicatorRankingPosition + 1);
     }
 }
